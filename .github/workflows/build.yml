@@ -51,7 +51,7 @@ jobs:
         run: python scripts/prepare_remote_fallbacks.py
 
       - name: Syntax check
-        run: python -m py_compile setup_tool.py setup_tool_dynamic.py remote_packages.py tests/test_safety.py scripts/prepare_remote_fallbacks.py
+        run: python -m py_compile setup_tool.py setup_tool_dynamic.py setup_tool_responsive.py remote_packages.py tests/test_safety.py scripts/prepare_remote_fallbacks.py
 
       - name: Unit safety tests
         run: python -m unittest discover -s tests -v
@@ -66,7 +66,7 @@ jobs:
           --add-data "Payload;Payload"
           --add-data "vanilla-tweaks.exe;."
           --name "WoW_Modernization_Tool"
-          setup_tool_dynamic.py
+          setup_tool_responsive.py
 
       - name: Verify EXE exists
         shell: pwsh
