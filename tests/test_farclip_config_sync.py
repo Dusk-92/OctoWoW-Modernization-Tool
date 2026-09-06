@@ -56,6 +56,12 @@ class FarclipConfigSyncTests(unittest.TestCase):
         tool.vt_bluemoon = _Var(False)
         signature = tool._vanilla_tweaks_signature()
         self.assertEqual(signature["selected_patch_normalization"], 4)
+        self.assertEqual(signature["farclip"], 3000)
+
+        tool.vt_farclip = _Var(1500)
+        runtime_changed = tool._vanilla_tweaks_signature()
+        self.assertEqual(runtime_changed["farclip"], 3000)
+        self.assertEqual(signature, runtime_changed)
 
     def test_existing_farclip_cvar_is_replaced_without_touching_other_settings(self):
         tool = self._tool(777)

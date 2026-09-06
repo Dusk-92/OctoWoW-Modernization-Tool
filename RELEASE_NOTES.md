@@ -10,6 +10,7 @@ This update focuses on **better compatibility, safer WoW.exe patching, improved 
 - Improved support for already-patched clients while preserving client-specific loader code.
 - Removed overly strict build/version checks that could reject compatible clients.
 - SuperWoW now uses the same FoV selected by the Modernization Tool by synchronizing the `FoV` CVar in `WTF/Config.wtf`.
+- Render Distance now keeps the executable Farclip ceiling fixed at **3000** while synchronizing the selected runtime value to `WTF/Config.wtf`, preventing stale higher Farclip values from conflicting with `WoW_Modernized.exe`.
 
 ## 🎨 MPQ & Recovery
 

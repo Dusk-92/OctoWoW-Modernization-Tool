@@ -287,6 +287,9 @@ class ModernWowSetupTool(_ModernWowSetupToolCore):
 
     def _vanilla_tweaks_signature(self):
         signature = super()._vanilla_tweaks_signature()
+        # Runtime Farclip lives in Config.wtf; the executable ceiling is fixed.
+        # Keep the executable signature stable when only Render Distance changes.
+        signature["farclip"] = int(_FARCLIP_EXE_CEILING)
         # Bump when normalization changes so existing managed installs get one
         # clean WoW_Modernized.exe rebuild under the new policy.
         signature["selected_patch_normalization"] = 4
