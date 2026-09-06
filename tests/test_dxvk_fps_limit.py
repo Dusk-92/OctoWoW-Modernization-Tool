@@ -1,8 +1,22 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import dxvk_fps
+import setup_tool_dynamic
+import setup_tool_responsive
+
+
+class FakeVar:
+    def __init__(self, value):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
 
 
 class DxvkFpsLimitTests(unittest.TestCase):
@@ -85,10 +99,44 @@ class DxvkFpsLimitTests(unittest.TestCase):
 
             self.assertEqual(self.read_config(path), original)
 
-    def test_non_windows_detection_uses_fallback(self):
-        if os.name == "nt":
-            self.skipTest("Non-Windows fallback test")
-        self.assertEqual(dxvk_fps.detect_max_refresh_rate(default=77), 77)
+    def test_refresh_detection_always_returns_a_positive_integer(self):
+        detected = dxvk_fps.detect_max_refresh_rate(default=77)
+        self.assertIsInstance(detected, int)
+        self.assertGreater(detected, 0)
+
+    @mock.patch.object(setup_tool_dynamic.ModernWowSetupTool, "configure_dxvk")
+    @mock.patch("setup_tool_responsive.dxvk_fps.apply_dxvk_fps_limit")
+    def test_directx9_never_applies_fps_config(self, apply_limit, parent_configure):
+        tool = setup_tool_responsive.ResponsiveModernWowSetupTool.__new__(
+            setup_tool_responsive.ResponsiveModernWowSetupTool
+        )
+        tool.rendering_mode = FakeVar("directx9")
+        tool.limit_dxvk_fps = FakeVar(True)
+        tool.dxvk_fps_limit = FakeVar(165)
+
+        tool.configure_dxvk("C:/WoW")
+
+        parent_configure.assert_called_once_with("C:/WoW")
+        apply_limit.assert_not_called()
+
+    @mock.patch.object(setup_tool_dynamic.ModernWowSetupTool, "configure_dxvk")
+    @mock.patch("setup_tool_responsive.dxvk_fps.apply_dxvk_fps_limit")
+    def test_dxvk_applies_selected_fps_value(self, apply_limit, parent_configure):
+        tool = setup_tool_responsive.ResponsiveModernWowSetupTool.__new__(
+            setup_tool_responsive.ResponsiveModernWowSetupTool
+        )
+        tool.rendering_mode = FakeVar("dxvk")
+        tool.limit_dxvk_fps = FakeVar(True)
+        tool.dxvk_fps_limit = FakeVar(144)
+
+        tool.configure_dxvk("C:/WoW")
+
+        parent_configure.assert_called_once_with("C:/WoW")
+        apply_limit.assert_called_once_with(
+            os.path.join("C:/WoW", "dxvk.conf"),
+            True,
+            144,
+        )
 
 
 if __name__ == "__main__":
