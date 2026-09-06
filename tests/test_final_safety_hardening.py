@@ -220,7 +220,7 @@ class VanillaTweaksSourceValidationTests(unittest.TestCase):
             1.9199,
             places=4,
         )
-        self.assertEqual(struct.unpack_from("<f", result, 0x40FED8)[0], 1500.0)
+        self.assertEqual(struct.unpack_from("<f", result, 0x40FED8)[0], 3000.0)
         self.assertEqual(struct.unpack_from("<f", result, 0x467958)[0], 300.0)
         self.assertEqual(struct.unpack_from("<f", result, 0x40C448)[0], 41.0)
         self.assertEqual(struct.unpack_from("<f", result, 0x4089A4)[0], 100.0)

@@ -111,7 +111,7 @@ class WowSetupTool:
 
             # Tweaks Tab
             "fov": "Calculates horizontal Field of View mathematically scaled to maintain vertical aspect space based on your screen ratio.",
-            "farclip": "Increases the maximum terrain render distance. Vanilla default is 777. Tweaks default is 1500.",
+            "farclip": "Sets the active terrain render distance used by the game. Vanilla default is 777. The Tool keeps the executable Farclip ceiling fixed at 3000.",
             "frill": "Changes the ground clutter (grass) render distance. Vanilla default is 70. Tweaks default is 300.",
             "nameplate": "Increases the distance at which enemy nameplates become visible. Vanilla default is 20. Tweaks default is 41.",
             "cam": "Increases the maximum camera zoom-out distance. Vanilla default is 50. Max safe limit is 100.",
@@ -749,7 +749,7 @@ class WowSetupTool:
         frame_nums.pack(fill='x', padx=15, pady=0)
         frame_nums.columnconfigure(1, weight=1) 
         
-        self.create_slider_row(frame_nums, 0, "Render distance (Farclip) [Safe Max: 1500]:", self.vt_farclip, 777, 1500, 10000, "farclip")
+        self.create_slider_row(frame_nums, 0, "Render distance (Farclip) [Safe Max: 1500]:", self.vt_farclip, 777, 1500, 3000, "farclip")
         self.create_slider_row(frame_nums, 1, "Ground clutter (Frilldistance) [Safe Max: 300]:", self.vt_frill, 70, 300, 1000, "frill")
         self.create_slider_row(frame_nums, 2, "Nameplate range [Safe Max: 41]:", self.vt_nameplate, 20, 41, 150, "nameplate")
         self.create_slider_row(frame_nums, 3, "Camera distance [Safe Max: 100]:", self.vt_maxcam, 50, 100, 250, "cam")
