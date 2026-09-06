@@ -4,7 +4,6 @@ import unittest
 from unittest import mock
 
 import setup_tool_dynamic
-import setup_tool_responsive
 
 
 class _Var:
@@ -17,29 +16,46 @@ class _Var:
 
 class FarclipConfigSyncTests(unittest.TestCase):
     def _tool(self, farclip=777):
-        tool = object.__new__(setup_tool_responsive.ResponsiveModernWowSetupTool)
+        tool = object.__new__(setup_tool_dynamic.ModernWowSetupTool)
         tool.vt_farclip = _Var(farclip)
         return tool
 
-    def test_executable_farclip_ceiling_has_3000_floor(self):
-        tool = self._tool()
-        with mock.patch.object(
-            setup_tool_dynamic.ModernWowSetupTool,
-            "_desired_normalized_values",
-            return_value={"farclip": 777.0},
-        ):
-            desired = tool._desired_normalized_values()
+    @staticmethod
+    def _add_numeric_vars(tool):
+        tool.vt_fov = _Var(1.9199)
+        tool.vt_frill = _Var(300)
+        tool.vt_nameplate = _Var(41)
+        tool.vt_maxcam = _Var(100)
+        tool.vt_soundchan = _Var(64)
+
+    def test_executable_farclip_ceiling_is_always_3000(self):
+        tool = self._tool(777)
+        self._add_numeric_vars(tool)
+        desired = tool._desired_normalized_values()
         self.assertEqual(desired["farclip"], 3000.0)
 
-    def test_executable_farclip_ceiling_keeps_explicit_value_above_3000(self):
+        tool.vt_farclip = _Var(3000)
+        desired = tool._desired_normalized_values()
+        self.assertEqual(desired["farclip"], 3000.0)
+
+    def test_farclip_above_3000_is_rejected_even_with_direct_internal_call(self):
         tool = self._tool(5000)
-        with mock.patch.object(
-            setup_tool_dynamic.ModernWowSetupTool,
-            "_desired_normalized_values",
-            return_value={"farclip": 5000.0},
-        ):
-            desired = tool._desired_normalized_values()
-        self.assertEqual(desired["farclip"], 5000.0)
+        self._add_numeric_vars(tool)
+        with self.assertRaisesRegex(RuntimeError, "Farclip"):
+            tool._desired_normalized_values()
+
+    def test_normalization_signature_bump_forces_existing_install_refresh(self):
+        tool = self._tool(777)
+        self._add_numeric_vars(tool)
+        tool.vt_quickloot = _Var(True)
+        tool.vt_bg_sound = _Var(True)
+        tool.vt_laa = _Var(True)
+        tool.vt_cam_fix = _Var(True)
+        tool.vt_crossfaction_res = _Var(False)
+        tool.vt_custom_glues = _Var(True)
+        tool.vt_bluemoon = _Var(False)
+        signature = tool._vanilla_tweaks_signature()
+        self.assertEqual(signature["selected_patch_normalization"], 4)
 
     def test_existing_farclip_cvar_is_replaced_without_touching_other_settings(self):
         tool = self._tool(777)
@@ -88,10 +104,18 @@ class FarclipConfigSyncTests(unittest.TestCase):
                 result = handle.read()
             self.assertEqual(result, 'SET farclip "1000"\n')
 
+    def test_farclip_cvar_rejects_value_above_fixed_ceiling(self):
+        tool = self._tool(3001)
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaisesRegex(RuntimeError, "3000"):
+                tool._configure_farclip_cvar(root)
+            self.assertFalse(os.path.exists(os.path.join(root, "WTF", "Config.wtf")))
+
     def test_configure_script_memory_also_synchronizes_farclip(self):
         tool = self._tool(777)
+        tool.core_plugins = {"SuperWoWhook.dll": _Var(False)}
         with mock.patch.object(
-            setup_tool_dynamic.ModernWowSetupTool,
+            setup_tool_dynamic._ModernWowSetupToolCore,
             "configure_script_memory",
         ) as parent_configure, mock.patch.object(
             tool,

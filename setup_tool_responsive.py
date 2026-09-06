@@ -1,15 +1,10 @@
 import json
 import os
-import re
-import stat
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 import dxvk_fps
 import setup_tool_dynamic
-
-
-_FARCLIP_EXE_FLOOR = 3000.0
 
 
 class ResponsiveModernWowSetupTool(setup_tool_dynamic.ModernWowSetupTool):
@@ -246,83 +241,6 @@ class ResponsiveModernWowSetupTool(setup_tool_dynamic.ModernWowSetupTool):
             return False
 
         return True
-
-    def _desired_normalized_values(self):
-        desired = super()._desired_normalized_values()
-        # The EXE field is a maximum allowed Farclip, not the active distance.
-        # Keep a 3000 baseline ceiling so an existing Config.wtf value cannot
-        # exceed a newly reduced executable limit. Values explicitly selected
-        # above 3000 still raise the ceiling so the safety override keeps working.
-        desired["farclip"] = max(_FARCLIP_EXE_FLOOR, desired["farclip"])
-        return desired
-
-    def _configure_farclip_cvar(self, target):
-        """Apply the selected render distance to WTF/Config.wtf."""
-        try:
-            farclip = int(self.vt_farclip.get())
-        except (tk.TclError, TypeError, ValueError) as exc:
-            raise RuntimeError("Render Distance (Farclip) is not a valid number.") from exc
-        if farclip <= 0:
-            raise RuntimeError("Render Distance (Farclip) must be greater than 0.")
-
-        wtf_dir = os.path.join(target, "WTF")
-        config_path = os.path.join(wtf_dir, "Config.wtf")
-        staged = config_path + ".modernization-farclip"
-        original_mode = None
-        restore_readonly = False
-
-        try:
-            os.makedirs(wtf_dir, exist_ok=True)
-
-            if os.path.exists(config_path):
-                original_mode = os.stat(config_path).st_mode
-                if not (original_mode & stat.S_IWRITE):
-                    os.chmod(config_path, original_mode | stat.S_IWRITE)
-                    restore_readonly = True
-
-            existing = ""
-            if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8", errors="ignore") as handle:
-                    existing = handle.read()
-
-            setting = f'SET farclip "{farclip}"'
-            pattern = re.compile(
-                r'^\s*SET\s+farclip\s+"[^"]*"\s*$',
-                re.IGNORECASE | re.MULTILINE,
-            )
-            if pattern.search(existing):
-                updated = pattern.sub(setting, existing)
-            else:
-                if existing and not existing.endswith(("\n", "\r")):
-                    existing += "\n"
-                updated = existing + setting + "\n"
-
-            with open(staged, "w", encoding="utf-8", newline="") as handle:
-                handle.write(updated)
-            os.replace(staged, config_path)
-
-        except OSError as exc:
-            raise RuntimeError(
-                "Could not synchronize Render Distance in WTF\\Config.wtf. "
-                "Close WoW and any program using the file, then try again."
-            ) from exc
-        finally:
-            if os.path.exists(staged):
-                try:
-                    os.remove(staged)
-                except OSError:
-                    pass
-            if restore_readonly and original_mode is not None and os.path.exists(config_path):
-                try:
-                    os.chmod(config_path, original_mode)
-                except OSError:
-                    pass
-
-    def configure_script_memory(self, target):
-        # Keep the existing script-memory and SuperWoW FoV behavior, then make
-        # the Tool's Render Distance selection authoritative at runtime too.
-        super().configure_script_memory(target)
-        self._configure_farclip_cvar(target)
 
     def configure_dxvk(self, target):
         super().configure_dxvk(target)
