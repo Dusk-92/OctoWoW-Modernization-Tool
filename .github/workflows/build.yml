@@ -95,6 +95,16 @@ jobs:
 
       # One-time production promotion for v2.3. The exact commit message keeps
       # normal main pushes from publishing or modifying the v2.3 release.
+      # Keep the Git tag aligned with the exact commit used to build the assets.
+      - name: Synchronize Git tag v2.3
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'release v2.3' }}
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f v2.3 "${{ github.sha }}"
+          git push origin refs/tags/v2.3 --force
+
       - name: Create GitHub Release v2.3
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.event.head_commit.message == 'release v2.3' }}
         uses: softprops/action-gh-release@v3
@@ -112,14 +122,9 @@ jobs:
           make_latest: true
 
       - name: Create GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/tags/v2.3' }}
         uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/WoW_Modernization_Tool.exe
             dist/WoW_Modernization_Tool.zip
-          fail_on_unmatched_files: true
-          name: "WoW Modernization Tool ${{ github.ref_name }}"
-          body_path: RELEASE_NOTES.md
-          generate_release_notes: true
-          make_latest: true
