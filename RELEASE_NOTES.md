@@ -1,6 +1,6 @@
 # 🛠️ WoW Modernization Tool v2.3
 
-This update focuses on **better compatibility, safer WoW.exe patching and improved recovery**.
+This update focuses on **better compatibility, safer WoW.exe patching, improved recovery and better display-scaling support**.
 
 ## ⚙️ Vanilla Tweaks & Compatibility
 
