@@ -146,7 +146,10 @@ class ResponsiveModernWowSetupTool(setup_tool_dynamic.ModernWowSetupTool):
         if entry is not None:
             entry.configure(state="normal" if is_dxvk and enabled else "disabled")
         if unit_label is not None:
-            unit_label.configure(state="normal" if is_dxvk and enabled else "disabled")
+            if is_dxvk and enabled:
+                unit_label.state(["!disabled"])
+            else:
+                unit_label.state(["disabled"])
 
     def _collect_settings(self):
         settings = super()._collect_settings()
