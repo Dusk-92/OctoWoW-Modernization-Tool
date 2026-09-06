@@ -1,0 +1,70 @@
+name: Finalize Farclip Release Polish
+
+on:
+  push:
+    branches:
+      - 'test/farclip-config-sync'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ github.event.head_commit.message == 'Prepare Farclip final release polish' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/farclip-config-sync
+          fetch-depth: 0
+
+      - name: Apply final Farclip release polish
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'Expected text not found in {path}: {old!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_exact(
+              'setup_tool.py',
+              '            "farclip": "Increases the maximum terrain render distance. Vanilla default is 777. Tweaks default is 1500.",',
+              '            "farclip": "Sets the active terrain render distance used by the game. Vanilla default is 777. The Tool keeps the executable Farclip ceiling fixed at 3000.",',
+          )
+          replace_exact(
+              'setup_tool.py',
+              '        self.create_slider_row(frame_nums, 0, "Render distance (Farclip) [Safe Max: 1500]:", self.vt_farclip, 777, 1500, 10000, "farclip")',
+              '        self.create_slider_row(frame_nums, 0, "Render distance (Farclip) [Safe Max: 1500]:", self.vt_farclip, 777, 1500, 3000, "farclip")',
+          )
+          replace_exact(
+              'setup_tool_dynamic.py',
+              '        signature = super()._vanilla_tweaks_signature()\n        # Bump when normalization changes so existing managed installs get one',
+              '        signature = super()._vanilla_tweaks_signature()\n        # Runtime Farclip lives in Config.wtf; the executable ceiling is fixed.\n        # Keep the executable signature stable when only Render Distance changes.\n        signature["farclip"] = int(_FARCLIP_EXE_CEILING)\n        # Bump when normalization changes so existing managed installs get one',
+          )
+          replace_exact(
+              'tests/test_farclip_config_sync.py',
+              '        signature = tool._vanilla_tweaks_signature()\n        self.assertEqual(signature["selected_patch_normalization"], 4)',
+              '        signature = tool._vanilla_tweaks_signature()\n        self.assertEqual(signature["selected_patch_normalization"], 4)\n        self.assertEqual(signature["farclip"], 3000)\n\n        tool.vt_farclip = _Var(1500)\n        runtime_changed = tool._vanilla_tweaks_signature()\n        self.assertEqual(runtime_changed["farclip"], 3000)\n        self.assertEqual(signature, runtime_changed)',
+          )
+          replace_exact(
+              'RELEASE_NOTES.md',
+              '- SuperWoW now uses the same FoV selected by the Modernization Tool by synchronizing the `FoV` CVar in `WTF/Config.wtf`.\n',
+              '- SuperWoW now uses the same FoV selected by the Modernization Tool by synchronizing the `FoV` CVar in `WTF/Config.wtf`.\n- Render Distance now keeps the executable Farclip ceiling fixed at **3000** while synchronizing the selected runtime value to `WTF/Config.wtf`, preventing stale higher Farclip values from conflicting with `WoW_Modernized.exe`.\n',
+          )
+          PY
+
+      - name: Commit finalized changes
+        shell: bash
+        run: |
+          rm .github/workflows/finalize-farclip-release.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add setup_tool.py setup_tool_dynamic.py tests/test_farclip_config_sync.py RELEASE_NOTES.md .github/workflows/finalize-farclip-release.yml
+          git commit -m "Finalize Farclip release polish"
+          git push origin HEAD:test/farclip-config-sync
