@@ -80,7 +80,7 @@ _CUSTOM_GLUES_SITES = (
 
 # Numeric fields may already contain legitimate Turtle/Octo/community values.
 # Preflight only sanity-checks those fixed-offset fields; normalization later
-# overwrites them with the exact values selected in the Tool.
+# applies the exact Tool policy without fingerprinting community numeric values.
 _NUMERIC_SITES = (
     ("fov", 0x4089B4, "FoV", 0.5, 3.5),
     ("farclip", 0x40FED8, "Farclip", 777.0, 10000.0),
@@ -93,6 +93,7 @@ _CLIENT_BUILD_OFFSET = 0x437BFC
 _CLIENT_VERSION_OFFSET = 0x437C04
 _CLIENT_BUILD = b"5875"
 _CLIENT_VERSION = b"1.12.1"
+_FARCLIP_EXE_CEILING = 3000.0
 
 
 def _strict_verify_mpq(path):
@@ -286,16 +287,17 @@ class ModernWowSetupTool(_ModernWowSetupToolCore):
 
     def _vanilla_tweaks_signature(self):
         signature = super()._vanilla_tweaks_signature()
-        # Keep the B-total policy generation stable for existing test builds.
-        # Fixed build/version string anchors are no longer part of preflight.
-        signature["selected_patch_normalization"] = 3
+        # Bump when normalization changes so existing managed installs get one
+        # clean WoW_Modernized.exe rebuild under the new policy.
+        signature["selected_patch_normalization"] = 4
         signature["source_fingerprint_policy"] = 1
         return signature
 
     def _desired_normalized_values(self):
+        selected_farclip = float(self.vt_farclip.get())
         desired = {
             "fov": float(self.vt_fov.get()),
-            "farclip": float(self.vt_farclip.get()),
+            "farclip": selected_farclip,
             "frill": float(self.vt_frill.get()),
             "nameplate": float(self.vt_nameplate.get()),
             "maxcam": float(self.vt_maxcam.get()),
@@ -304,7 +306,7 @@ class ModernWowSetupTool(_ModernWowSetupToolCore):
 
         ranges = (
             ("FoV", desired["fov"], 0.5, 3.5),
-            ("Farclip", desired["farclip"], 100.0, 50000.0),
+            ("Farclip", selected_farclip, 100.0, _FARCLIP_EXE_CEILING),
             ("Frill Distance", desired["frill"], 0.0, 10000.0),
             ("Nameplate Distance", desired["nameplate"], 1.0, 500.0),
             ("Max Camera Distance", desired["maxcam"], 1.0, 1000.0),
@@ -321,7 +323,35 @@ class ModernWowSetupTool(_ModernWowSetupToolCore):
                 "Sound Channels value is outside the supported WoW 1.12.1 range."
             )
         desired["sound_bytes"] = sound_channels.ljust(4, b"\x00")
+
+        # The EXE field is the maximum allowed Farclip, not the active distance.
+        # Keep it fixed at 3000. The selected runtime value is synchronized to
+        # Config.wtf separately and may never exceed this ceiling.
+        desired["farclip"] = _FARCLIP_EXE_CEILING
         return desired
+
+    def validate_limits(self):
+        if not super().validate_limits():
+            return False
+
+        try:
+            farclip = float(self.vt_farclip.get())
+        except (tk.TclError, TypeError, ValueError):
+            messagebox.showerror(
+                "Input Error",
+                "Render Distance (Farclip) must contain a valid number.",
+            )
+            return False
+
+        if not math.isfinite(farclip) or not 100.0 <= farclip <= _FARCLIP_EXE_CEILING:
+            messagebox.showerror(
+                "Limit Exceeded",
+                "Render distance (Farclip) must stay between 100 and 3000. "
+                "The 3000 hard maximum also applies when Safety Limits are disabled.",
+            )
+            return False
+
+        return True
 
     @staticmethod
     def _validate_client_identity(data):
@@ -554,10 +584,75 @@ class ModernWowSetupTool(_ModernWowSetupToolCore):
                 except OSError:
                     pass
 
+    def _configure_farclip_cvar(self, target):
+        """Synchronize the Tool-selected runtime Farclip to WTF/Config.wtf."""
+        try:
+            farclip = int(self.vt_farclip.get())
+        except (tk.TclError, TypeError, ValueError) as exc:
+            raise RuntimeError("Render Distance (Farclip) is not a valid number.") from exc
+        if not 100 <= farclip <= int(_FARCLIP_EXE_CEILING):
+            raise RuntimeError(
+                "Render Distance (Farclip) must stay between 100 and 3000."
+            )
+
+        wtf_dir = os.path.join(target, "WTF")
+        config_path = os.path.join(wtf_dir, "Config.wtf")
+        staged = config_path + ".modernization-farclip"
+        original_mode = None
+        restore_readonly = False
+
+        try:
+            os.makedirs(wtf_dir, exist_ok=True)
+
+            if os.path.exists(config_path):
+                original_mode = os.stat(config_path).st_mode
+                if not (original_mode & stat.S_IWRITE):
+                    os.chmod(config_path, original_mode | stat.S_IWRITE)
+                    restore_readonly = True
+
+            existing = ""
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8", errors="ignore") as handle:
+                    existing = handle.read()
+
+            setting = f'SET farclip "{farclip}"'
+            pattern = re.compile(
+                r'^\s*SET\s+farclip\s+"[^"]*"\s*$',
+                re.IGNORECASE | re.MULTILINE,
+            )
+            if pattern.search(existing):
+                updated = pattern.sub(setting, existing)
+            else:
+                if existing and not existing.endswith(("\n", "\r")):
+                    existing += "\n"
+                updated = existing + setting + "\n"
+
+            with open(staged, "w", encoding="utf-8", newline="") as handle:
+                handle.write(updated)
+            os.replace(staged, config_path)
+
+        except OSError as exc:
+            raise RuntimeError(
+                "Could not synchronize Render Distance in WTF\\Config.wtf. "
+                "Close WoW and any program using the file, then try again."
+            ) from exc
+        finally:
+            if os.path.exists(staged):
+                try:
+                    os.remove(staged)
+                except OSError:
+                    pass
+            if restore_readonly and original_mode is not None and os.path.exists(config_path):
+                try:
+                    os.chmod(config_path, original_mode)
+                except OSError:
+                    pass
+
     def configure_script_memory(self, target):
-        """Apply base Config.wtf settings, then synchronize SuperWoW FoV."""
+        """Apply base Config.wtf settings, then synchronize FoV and Farclip."""
         super().configure_script_memory(target)
         self._configure_superwow_fov_cvar(target)
+        self._configure_farclip_cvar(target)
 
     def run_installation(self):
         """Run the EXE patch transaction before the installer's first file write.
