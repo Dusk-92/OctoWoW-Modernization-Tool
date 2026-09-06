@@ -51,7 +51,7 @@ jobs:
         run: python scripts/prepare_remote_fallbacks.py
 
       - name: Syntax check
-        run: python -m py_compile setup_tool.py setup_tool_dynamic.py setup_tool_responsive.py remote_packages.py tests/test_safety.py scripts/prepare_remote_fallbacks.py
+        run: python -m py_compile setup_tool.py setup_tool_dynamic.py setup_tool_responsive.py dxvk_fps.py remote_packages.py tests/test_safety.py tests/test_dxvk_fps_limit.py scripts/prepare_remote_fallbacks.py
 
       - name: Unit safety tests
         run: python -m unittest discover -s tests -v
