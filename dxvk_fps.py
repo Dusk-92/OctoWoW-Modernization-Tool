@@ -4,7 +4,7 @@ import re
 
 DEFAULT_REFRESH_RATE = 60
 _MAX_FRAME_RATE_RE = re.compile(
-    r"^\s*(?P<comment>#\s*)?d3d9\.maxFrameRate\s*=\s*(?P<value>\d+)\s*$",
+    r"^\s*(?P<comment>#\s*)?d3d9\.maxFrameRate\s*=\s*(?P<value>[+-]?\d+)\s*$",
     re.IGNORECASE,
 )
 
@@ -88,7 +88,7 @@ def detect_max_refresh_rate(default=DEFAULT_REFRESH_RATE):
         ]
         enum_display_settings.restype = wintypes.BOOL
 
-        DISPLAY_DEVICE_ACTIVE = 0x00000001
+        DISPLAY_DEVICE_ATTACHED_TO_DESKTOP = 0x00000001
         ENUM_CURRENT_SETTINGS = 0xFFFFFFFF
         rates = []
         index = 0
@@ -100,7 +100,7 @@ def detect_max_refresh_rate(default=DEFAULT_REFRESH_RATE):
                 break
             index += 1
 
-            if not (device.StateFlags & DISPLAY_DEVICE_ACTIVE):
+            if not (device.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP):
                 continue
 
             mode = DEVMODEW()
@@ -126,7 +126,7 @@ def detect_max_refresh_rate(default=DEFAULT_REFRESH_RATE):
 
 
 def read_dxvk_fps_limit(config_path):
-    """Return (enabled, fps) for the first DXVK maxFrameRate line, or None."""
+    """Return (enabled, fps) for the first positive DXVK maxFrameRate line, or None."""
     try:
         with open(config_path, "r", encoding="utf-8", errors="ignore") as handle:
             lines = handle.read().splitlines()
@@ -175,7 +175,8 @@ def apply_dxvk_fps_limit(config_path, enabled, fps):
             if not replaced:
                 output.append(setting)
                 replaced = True
-            # Drop duplicate maxFrameRate lines so only one setting can win.
+            # Drop duplicate maxFrameRate lines, including legacy signed values,
+            # so only the user's selected setting can win.
             continue
         output.append(line)
 
