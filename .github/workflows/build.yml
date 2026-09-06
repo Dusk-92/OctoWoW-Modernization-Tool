@@ -6,7 +6,6 @@ on:
       - 'main'
       - 'feature/client-tweaks'
       - 'test/discord-presence'
-      - 'test/ui-scaling'
     tags:
       - 'v*'
   pull_request:
