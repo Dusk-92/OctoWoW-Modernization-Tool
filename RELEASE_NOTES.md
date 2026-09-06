@@ -1,6 +1,6 @@
 # 🛠️ WoW Modernization Tool v2.3
 
-This update focuses on **better compatibility, safer WoW.exe patching, improved recovery and better display-scaling support**.
+This update focuses on **better compatibility, safer WoW.exe patching, improved recovery, display-scaling support and DXVK configuration**.
 
 ## ⚙️ Vanilla Tweaks & Compatibility
 
@@ -20,9 +20,11 @@ This update focuses on **better compatibility, safer WoW.exe patching, improved 
 
 ## 🛡️ Reliability
 
+- Added an optional **DXVK FPS limiter** that detects the highest refresh rate of attached displays, prefills that value and remains manually editable.
+- The DXVK FPS limiter is enabled by default for new configurations, persists per WoW installation and is disabled in DirectX 9 mode.
 - DXVK exclusive fullscreen is now disabled by default to avoid black screens during Alt+Tab on Windows.
 - The Tool window now adapts better to Windows display scaling and smaller screens, keeping **Apply Setup & Tweaks** accessible.
-- Expanded automated tests for installation ordering, recovery and executable patching.
+- Expanded automated tests for installation ordering, recovery, executable patching and DXVK FPS configuration.
 - Improved rollback behavior to reduce the risk of partial installations.
 
 ## ✅ Updating from v2.2
